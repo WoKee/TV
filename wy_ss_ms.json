@@ -1,0 +1,9 @@
+{
+  "e_date": "20240117",
+  "data":"K8sqQZvDoW5/RfvsuaFyzallhaeOCNqniTy6xWKy9VQdhhN3LMqdHzcMlxurtY1tMNTeusvvHRgK1SeAxswhJ6RQxk3ITTnGNtTme3gQKO7zpjfBPfF4PLXZaJtBFI3dyvP2kGe4NGf/zOSo6+X0OvINjWVgdBx3/1VcndGnC2nSgH48H89oortUctg6NjKpToVfzCGqQR9YWCJTjlxaQNIQ5v27JAsGa4baQkggtA6UvHkVdclROllRJcGIKRv7sxEhMY9e1WNfwRN502SzTf95PoQHxDCbtaS83A5tCdw=",
+  "step": "无忧 思思多仓一键配置使用说明",
+  "step_1": "1.无忧本地包 <TVBox>放置于根目录下，目录为TVBox/...",
+  "step_2": "2.思思本地包 <SH>放置于根目录/TVBox/下，目录为TVBox/SH/...",
+  "step_3": "3.使用多仓，输入本地址既可使用多仓，无忧+思思",
+  "step_4": "4.后续更新本地包，只需要点击仓库小房子即可自动刷新线路，不用重新配置"
+}
