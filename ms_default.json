@@ -3,6 +3,6 @@
   "data":"K8sqQZvDoW5/RfvsuaFyzallhaeOCNqniTy6xWKy9VR4GBjmP2EIgbqtxQR48ftqMNTeusvvHRgK1SeAxswhJ6RQxk3ITTnGNtTme3gQKO65f9PTYlDjR1NfrCkAvY3ahRIn8uQ1trGJ8E0Hsp/xP+D/bfi964JgXoTHzFY7uxt6U+zsc5l0iUGRBZSZcgLHjkj/0nByIe2KZcfF97ICJmxFV2NrpKlk6/IHfqlQEYZEBTIwWuhu/rbvDCPeHUx8",
   "step": "影视_多仓一键配置使用说明",
   "step_1": "1.将《单仓模板.json》放置于TV目录下，目录为TV/单仓模板.json",
-  "step_2": "2.按照范例，编辑实用于你的《单仓模板.json》文件",
+  "step_2": "2.按照示例，编辑你的《单仓模板.json》文件",
   "step_3": "3.使用影视_多仓，输入本地址既可使用。"
 }
