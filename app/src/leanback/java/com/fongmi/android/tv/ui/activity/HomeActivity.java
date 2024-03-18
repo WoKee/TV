@@ -28,6 +28,7 @@ import com.fongmi.android.tv.Updater;
 import com.fongmi.android.tv.api.config.LiveConfig;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.api.config.WallConfig;
+import com.fongmi.android.tv.bean.Button;
 import com.fongmi.android.tv.bean.Class;
 import com.fongmi.android.tv.bean.Config;
 import com.fongmi.android.tv.bean.Filter;
@@ -81,6 +82,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     private View mOldView;
     private boolean confirm;
     private Clock mClock;
+    private View mFocus;
 
     private Site getHome() {
         return VodConfig.get().getHome();
@@ -167,7 +169,6 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mViewModel = new ViewModelProvider(this).get(SiteViewModel.class);
         mViewModel.result.observe(this, result -> {
             setTypes(mResult = result);
-            App.post(() -> Notify.dismiss(), 200);
         });
     }
 
@@ -197,7 +198,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         String title = getHome().getName();
         mBinding.title.setText(title.isEmpty() ? ResUtil.getString(R.string.app_name) : title);
         if (getHome().getKey().isEmpty()) return;
-        Notify.progress(this);
+        mFocus = getCurrentFocus();
+        getHomeFragment().mBinding.progressLayout.showProgress();
         mViewModel.homeContent();
     }
 
@@ -210,7 +212,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         setPager();
         mPageAdapter.notifyDataSetChanged();
         getHomeFragment().addVideo(result);
-        setFocus();
+        getHomeFragment().mBinding.progressLayout.showContent();
+        App.post(() -> setFocus(), 200);
     }
 
     private void setPager() {
@@ -267,14 +270,13 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
     }
 
     private boolean hasSettingButton() {
-        return Setting.getHomeButtons("").contains("6");
+        return Setting.getHomeButtons(Button.getDefaultButtons()).contains("6");
     }
 
     @Override
     public void onItemClick(Class item) {
         if (mBinding.pager.getCurrentItem() == 0) {
-            if (!hasSettingButton()) MenuDialog.create(this).show();
-            else SiteDialog.create(this).show();
+            SiteDialog.create(this).show();
         } else {
             updateFilter(item);
         }
@@ -288,35 +290,39 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     @Override
     public void setConfig(Config config) {
+        setConfig(config, "");
+    }
+
+    private void setConfig(Config config, String success) {
         if (config.getUrl().startsWith("file") && !PermissionX.isGranted(getActivity(), Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-            PermissionX.init(this).permissions(Manifest.permission.WRITE_EXTERNAL_STORAGE).request((allGranted, grantedList, deniedList) -> load(config));
+            PermissionX.init(this).permissions(Manifest.permission.WRITE_EXTERNAL_STORAGE).request((allGranted, grantedList, deniedList) -> load(config, success));
         } else {
-            load(config);
+            load(config, success);
         }
     }
 
     public void initConfig() {
         if (isLoading()) return;
-        Notify.progress(this);
         WallConfig.get().init();
         LiveConfig.get().init().load();
-        VodConfig.get().init().load(getCallback());
+        VodConfig.get().init().load(getCallback(""), true);
         setLoading(true);
     }
 
-    private Callback getCallback() {
+    private Callback getCallback(String success) {
         return new Callback() {
             @Override
             public void success() {
-                Notify.dismiss();
                 checkAction(getIntent());
                 RefreshEvent.video();
+                if (!TextUtils.isEmpty(success)) Notify.show(success);
             }
 
             @Override
             public void error(String msg) {
-                Notify.dismiss();
                 if (TextUtils.isEmpty(msg) && AppDatabase.getBackup().exists()) onRestore();
+                else if (getHomeFragment().init) getHomeFragment().mBinding.progressLayout.showContent();
+                else App.post(() -> getHomeFragment().mBinding.progressLayout.showContent(), 1000);
                 mResult = Result.empty();
                 Notify.show(msg);
             }
@@ -328,16 +334,16 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
             @Override
             public void success() {
                 if (allGranted) initConfig();
-                else Notify.dismiss();
+                else getHomeFragment().mBinding.progressLayout.showContent();
             }
         }));
     }
 
-    private void load(Config config) {
+    private void load(Config config, String success) {
         switch (config.getType()) {
             case 0:
-                Notify.progress(this);
-                VodConfig.load(config, getCallback());
+                getHomeFragment().mBinding.progressLayout.showProgress();
+                VodConfig.load(config, getCallback(success));
                 break;
         }
     }
@@ -370,11 +376,21 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     @Override
     public void onRefresh() {
-        Notify.progress(this);
-        FileUtil.clearCache(null);
-        initConfig();
-        App.post(() -> Notify.show(ResUtil.getString(R.string.config_refreshed)), 2000);
+        FileUtil.clearCache(new Callback() {
+            @Override
+            public void success() {
+                setConfig(VodConfig.get().getConfig().json("").save(), ResUtil.getString(R.string.config_refreshed));
+            }
+        });
     }
+
+    @Override
+    public boolean onItemLongClick(Class item) {
+        if (mBinding.pager.getCurrentItem() != 0) return true;
+        onRefresh();
+        return true;
+    }
+
 
     @Override
     public void setSite(Site item) {
@@ -452,8 +468,8 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     private void setFocus() {
         setLoading(false);
-        App.post(() -> mBinding.title.setFocusable(true), 500);
-        if (!mBinding.title.hasFocus()) {
+        if (!mBinding.title.isFocusable()) App.post(() -> mBinding.title.setFocusable(true), 500);
+        if (mFocus != mBinding.title) {
             if (Setting.getHomeUI() == 0) getHomeFragment().mBinding.recycler.requestFocus();
             else mBinding.recycler.requestFocus();
         }
@@ -498,12 +514,14 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
 
     @Override
     protected void onBackPress() {
-        if (mPageAdapter != null && getHomeFragment().mBinding.progressLayout.isProgress()) {
-            getHomeFragment().mBinding.progressLayout.showContent();
-        } else if (mPageAdapter != null && getHomeFragment().mPresenter != null && getHomeFragment().mPresenter.isDelete()) {
-            getHomeFragment().setHistoryDelete(false);
-        } else if (mBinding.recycler.getSelectedPosition() != 0) {
+        if (isVisible(mBinding.recycler) && mBinding.recycler.getSelectedPosition() != 0) {
             mBinding.recycler.scrollToPosition(0);
+        } else if (mPageAdapter != null && getHomeFragment().init && getHomeFragment().mBinding.progressLayout.isProgress()) {
+            getHomeFragment().mBinding.progressLayout.showContent();
+        } else if (mPageAdapter != null && getHomeFragment().init && getHomeFragment().mPresenter != null && getHomeFragment().mPresenter.isDelete()) {
+            getHomeFragment().setHistoryDelete(false);
+        } else if (getHomeFragment().canBack()) {
+            getHomeFragment().goBack();
         } else if (!confirm) {
             setConfirm();
         } else {
