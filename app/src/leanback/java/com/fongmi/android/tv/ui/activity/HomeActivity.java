@@ -58,6 +58,7 @@ import com.fongmi.android.tv.utils.FileUtil;
 import com.fongmi.android.tv.utils.KeyUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
+import com.fongmi.android.tv.utils.Tbs;
 import com.fongmi.android.tv.utils.UrlUtil;
 import com.github.catvod.utils.Prefers;
 import com.github.catvod.utils.Trans;
@@ -105,6 +106,7 @@ public class HomeActivity extends BaseActivity implements CustomTitleView.Listen
         mClock = Clock.create(mBinding.time).format("MM/dd HH:mm:ss");
         Updater.get().release().start(this);
         Server.get().start();
+        Tbs.init();
         setTitleView();
         setRecyclerView();
         setViewModel();
