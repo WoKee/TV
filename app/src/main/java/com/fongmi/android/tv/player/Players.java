@@ -3,6 +3,8 @@ package com.fongmi.android.tv.player;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.media.MediaMetadataCompat;
@@ -15,6 +17,7 @@ import androidx.annotation.NonNull;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.util.EventLogger;
@@ -81,11 +84,9 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
     private Sub sub;
 
     private long position;
-    private float speed;
     private int player;
     private int error;
     private int retry;
-    private boolean danmuSync;
 
     public static boolean isExo(int type) {
         return type == EXO;
@@ -112,7 +113,6 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
         builder = new StringBuilder();
         runnable = ErrorEvent::timeout;
         formatter = new Formatter(builder, Locale.getDefault());
-        danmuSync = Setting.isDanmuSync();
         createSession(activity);
         return this;
     }
@@ -167,6 +167,11 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
 
     public IjkVideoView ijk() {
         return ijkPlayer;
+    }
+
+    public VideoSize getVideoSize() {
+        if (isExo()) return exo().getVideoSize();
+        return new VideoSize(ijk().getVideoWidth(), ijk().getVideoHeight());
     }
 
     public Map<String, String> getHeaders() {
@@ -256,7 +261,7 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
     }
 
     public boolean canAdjustSpeed() {
-        return isIjk() || (isExo() && !Setting.isTunnel());
+        return isIjk() || !Setting.isTunnel();
     }
 
     public boolean haveTrack(int type) {
@@ -281,6 +286,10 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
 
     public boolean isEmpty() {
         return TextUtils.isEmpty(getUrl());
+    }
+
+    public boolean isLive() {
+        return getDuration() < 5 * 60 * 1000;
     }
 
     public boolean isVod() {
@@ -308,15 +317,15 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
     }
 
     public String setSpeed(float speed) {
-        if (exoPlayer != null && !Setting.isTunnel()) exoPlayer.setPlaybackSpeed(this.speed = speed);
-        if (ijkPlayer != null) ijkPlayer.setSpeed(this.speed = speed);
+        if (exoPlayer != null && !Setting.isTunnel()) exoPlayer.setPlaybackSpeed(speed);
+        if (ijkPlayer != null) ijkPlayer.setSpeed(speed);
         return getSpeedText();
     }
 
     public String addSpeed() {
         float speed = getSpeed();
-        float addon = speed >= 2 ? 1f : 0.1f;
-        speed = speed >= 5 ? 0.2f : Math.min(speed + addon, 5.0f);
+        float addon = speed >= 2 ? 1f : 0.25f;
+        speed = speed >= 5 ? 0.25f : Math.min(speed + addon, 5.0f);
         return setSpeed(speed);
     }
 
@@ -592,6 +601,54 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
         return bundle;
     }
 
+    public void setMetadata(String title, String artist, PlayerView view) {
+        try {
+            Bitmap bitmap = ((BitmapDrawable) view.getDefaultArtwork()).getBitmap();
+            MediaMetadataCompat.Builder builder = new MediaMetadataCompat.Builder();
+            builder.putString(MediaMetadataCompat.METADATA_KEY_TITLE, title);
+            builder.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist);
+            builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, bitmap);
+            builder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, getDuration());
+            session.setMetadata(builder.build());
+            ActionEvent.update();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void share(Activity activity, CharSequence title) {
+        try {
+            if (isEmpty()) return;
+            Intent intent = new Intent(Intent.ACTION_SEND);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.putExtra(Intent.EXTRA_TEXT, getUrl());
+            intent.putExtra("extra_headers", getHeaderBundle());
+            intent.putExtra("title", title);
+            intent.putExtra("name", title);
+            intent.setType("text/plain");
+            activity.startActivity(Util.getChooser(intent));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void choose(Activity activity, CharSequence title) {
+        try {
+            if (isEmpty()) return;
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.setDataAndType(getUri(), "video/*");
+            intent.putExtra("title", title);
+            intent.putExtra("return_result", isVod());
+            intent.putExtra("headers", getHeaderArray());
+            if (isVod()) intent.putExtra("position", (int) getPosition());
+            activity.startActivityForResult(Util.getChooser(intent), 1001);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public void checkData(Intent data) {
         try {
             if (data == null || data.getExtras() == null) return;
@@ -628,8 +685,8 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
 
     @Override
     public void onPlayerError(@NonNull PlaybackException error) {
-        ErrorEvent.url(ExoUtil.getRetry(this.error = error.errorCode));
         setPlaybackState(PlaybackStateCompat.STATE_ERROR);
+        ErrorEvent.url(ExoUtil.getRetry(this.error = error.errorCode), error.errorCode);
     }
 
     @Override
@@ -689,8 +746,7 @@ public class Players implements Player.Listener, IMediaPlayer.Listener, Analytic
 
     @Override
     public void updateTimer(DanmakuTimer timer) {
-        if (danmuSync) App.post(() -> timer.update(getPosition()));
-        else if (speed != 1) timer.add((long) (timer.lastInterval() * (speed - 1)));
+
     }
 
     @Override

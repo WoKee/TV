@@ -35,8 +35,16 @@ public class Epg {
         }
     }
 
+    public static Epg create(String key, String date) {
+        Epg item = new Epg();
+        item.setKey(key);
+        item.setDate(date);
+        item.setList(new ArrayList<>());
+        return item;
+    }
+
     public String getKey() {
-        return key;
+        return TextUtils.isEmpty(key) ? "" : key;
     }
 
     public void setKey(String key) {
@@ -45,6 +53,10 @@ public class Epg {
 
     public String getDate() {
         return TextUtils.isEmpty(date) ? "" : date;
+    }
+
+    public void setDate(String date) {
+        this.date = date;
     }
 
     public List<EpgData> getList() {
@@ -88,6 +100,11 @@ public class Epg {
 
     public int getSelected() {
         for (int i = 0; i < getList().size(); i++) if (getList().get(i).isSelected()) return i;
+        return -1;
+    }
+
+    public int getInRange() {
+        for (int i = 0; i < getList().size(); i++) if (getList().get(i).isInRange()) return i;
         return -1;
     }
 }

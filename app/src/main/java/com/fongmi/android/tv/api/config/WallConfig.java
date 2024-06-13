@@ -1,8 +1,11 @@
 package com.fongmi.android.tv.api.config;
 
+import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
 import com.fongmi.android.tv.Setting;
@@ -10,14 +13,14 @@ import com.fongmi.android.tv.bean.Config;
 import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.utils.FileUtil;
-import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.Notify;
+import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Asset;
 import com.github.catvod.utils.Path;
 
 import java.io.File;
-import java.io.IOException;
+import java.io.FileOutputStream;
 
 public class WallConfig {
 
@@ -41,10 +44,10 @@ public class WallConfig {
         return get().getConfig().getDesc();
     }
 
-    public static Drawable drawable(Drawable drawable) {
-        if (get().drawable != null) return drawable;
-        get().setDrawable(drawable);
-        return drawable;
+    public static Drawable drawable(File file) {
+        if (get().drawable != null) return get().drawable;
+        get().setDrawable(Drawable.createFromPath(file.getAbsolutePath()));
+        return get().drawable;
     }
 
     public static void load(Config config, Callback callback) {
@@ -93,12 +96,22 @@ public class WallConfig {
         }
     }
 
-    private File write(File file) throws IOException {
+    private File write(File file) throws Exception {
         if (getUrl().startsWith("file")) Path.copy(Path.local(getUrl()), file);
         else if (getUrl().startsWith("assets")) Path.copy(Asset.open(getUrl()), file);
-        else if (getUrl().startsWith("http")) Path.write(file, ImgUtil.resize(OkHttp.newCall(getUrl()).execute().body().bytes()));
-        else file.delete();
-        return file;
+        else if (getUrl().startsWith("http")) Path.write(file, OkHttp.newCall(getUrl()).execute().body().bytes());
+        return resize(file);
+    }
+
+    private File resize(File file) {
+        try {
+            Bitmap bitmap = Glide.with(App.get()).asBitmap().load(file).centerCrop().override(ResUtil.getScreenWidth(), ResUtil.getScreenHeight()).skipMemoryCache(true).diskCacheStrategy(DiskCacheStrategy.NONE).submit().get();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, new FileOutputStream(file));
+            bitmap.recycle();
+            return file;
+        } catch (Exception e) {
+            return file;
+        }
     }
 
     public boolean needSync(String url) {

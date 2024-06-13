@@ -3,7 +3,6 @@ package com.fongmi.android.tv.ui.base;
 import android.app.Activity;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.View;
 
@@ -19,7 +18,6 @@ import com.fongmi.android.tv.Setting;
 import com.fongmi.android.tv.api.config.WallConfig;
 import com.fongmi.android.tv.event.RefreshEvent;
 import com.fongmi.android.tv.utils.FileUtil;
-import com.fongmi.android.tv.utils.LanguageUtil;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.utils.Util;
 
@@ -38,14 +36,18 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        LanguageUtil.setLanguage(this.getResources(),Setting.getLanguage());
         setContentView(getBinding().getRoot());
         EventBus.getDefault().register(this);
         Util.hideSystemUI(this);
         setBackCallback();
-        setWall();
         initView();
         initEvent();
+    }
+
+    @Override
+    public void setContentView(View view) {
+        super.setContentView(view);
+        refreshWall();
     }
 
     protected Activity getActivity() {
@@ -94,11 +96,11 @@ public abstract class BaseActivity extends AppCompatActivity {
         });
     }
 
-    private void setWall() {
+    private void refreshWall() {
         try {
             if (!customWall()) return;
             File file = FileUtil.getWall(Setting.getWall());
-            if (file.exists() && file.length() > 0) getWindow().setBackgroundDrawable(WallConfig.drawable(Drawable.createFromPath(file.getAbsolutePath())));
+            if (file.exists() && file.length() > 0) getWindow().setBackgroundDrawable(WallConfig.drawable(file));
             else getWindow().setBackgroundDrawableResource(ResUtil.getDrawable(file.getName()));
         } catch (Exception e) {
             getWindow().setBackgroundDrawableResource(R.drawable.wallpaper_1);
@@ -118,7 +120,7 @@ public abstract class BaseActivity extends AppCompatActivity {
     public void onRefreshEvent(RefreshEvent event) {
         if (event.getType() != RefreshEvent.Type.WALL) return;
         WallConfig.get().setDrawable(null);
-        setWall();
+        refreshWall();
     }
 
     @Override
