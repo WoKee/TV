@@ -161,6 +161,11 @@ public class SettingActivity extends BaseActivity implements BackupCallback, Con
     private Callback getCallback() {
         return new Callback() {
             @Override
+            public void success(String result) {
+                Notify.show(result);
+            }
+
+            @Override
             public void success() {
                 setConfig();
             }
@@ -312,6 +317,7 @@ public class SettingActivity extends BaseActivity implements BackupCallback, Con
     public void setProxy(String proxy) {
         Source.get().stop();
         Setting.putProxy(proxy);
+        OkHttp.selector().clear();
         OkHttp.get().setProxy(proxy);
         Notify.progress(getActivity());
         VodConfig.load(Config.vod(), getCallback());
@@ -347,7 +353,10 @@ public class SettingActivity extends BaseActivity implements BackupCallback, Con
             public void success() {
                 if (allGranted) {
                     Notify.progress(getActivity());
-                    App.post(() -> initConfig(), 3000);
+                    App.post(() -> {
+                        AppDatabase.reset();
+                        initConfig();
+                    }, 3000);
                 }
             }
         }));

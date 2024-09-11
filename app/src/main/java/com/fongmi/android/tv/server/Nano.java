@@ -1,18 +1,18 @@
 package com.fongmi.android.tv.server;
 
-import android.util.Base64;
-
 import com.fongmi.android.tv.api.config.LiveConfig;
-import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Device;
 import com.fongmi.android.tv.server.process.Action;
 import com.fongmi.android.tv.server.process.Cache;
 import com.fongmi.android.tv.server.process.Local;
+import com.fongmi.android.tv.server.process.Media;
+import com.fongmi.android.tv.server.process.Parse;
 import com.fongmi.android.tv.server.process.Process;
+import com.fongmi.android.tv.server.process.Proxy;
 import com.github.catvod.utils.Asset;
-import com.github.catvod.utils.Util;
 import com.google.common.net.HttpHeaders;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +37,9 @@ public class Nano extends NanoHTTPD {
         process.add(new Action());
         process.add(new Cache());
         process.add(new Local());
+        process.add(new Media());
+        process.add(new Parse());
+        process.add(new Proxy());
     }
 
     public static Response success() {
@@ -69,10 +72,8 @@ public class Nano extends NanoHTTPD {
         if (session.getMethod() == Method.POST) parse(session, files);
         if (url.contains("?")) url = url.substring(0, url.indexOf('?'));
         if (url.startsWith("/go")) return go();
-        if (url.startsWith("/proxy")) return proxy(session);
         if (url.startsWith("/tvbus")) return success(LiveConfig.getResp());
         if (url.startsWith("/device")) return success(Device.get().toString());
-        if (url.startsWith("/license")) return success(Util.decode(url.substring(9)));
         for (Process process : process) if (process.isRequest(session, url)) return process.doResponse(session, url, files);
         return getAssets(url.substring(1));
     }
@@ -95,17 +96,6 @@ public class Nano extends NanoHTTPD {
         return success();
     }
 
-    private Response proxy(IHTTPSession session) {
-        try {
-            Map<String, String> params = session.getParms();
-            params.putAll(session.getHeaders());
-            Object[] rs = VodConfig.get().proxyLocal(params);
-            return rs[0] instanceof Response ? (Response) rs[0] : newChunkedResponse(Response.Status.lookup((Integer) rs[0]), (String) rs[1], (InputStream) rs[2]);
-        } catch (Exception e) {
-            return error(e.getMessage());
-        }
-    }
-
     private Response getAssets(String path) {
         try {
             if (path.isEmpty()) path = "index.html";
@@ -114,6 +104,12 @@ public class Nano extends NanoHTTPD {
         } catch (Exception e) {
             return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_HTML, null);
         }
+    }
+
+    @Override
+    public void start() throws IOException {
+        super.start();
+        Go.start();
     }
 
     @Override

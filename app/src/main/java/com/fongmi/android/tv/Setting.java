@@ -210,6 +210,14 @@ public class Setting {
         Prefers.put("site_mode", mode);
     }
 
+    public static int getSyncMode() {
+        return Prefers.getInt("sync_mode");
+    }
+
+    public static void putSyncMode(int mode) {
+        Prefers.put("sync_mode", mode);
+    }
+
     public static boolean isBootLive() {
         return Prefers.getBoolean("boot_live");
     }
@@ -248,6 +256,14 @@ public class Setting {
 
     public static void putUpdate(boolean update) {
         Prefers.put("update", update);
+    }
+
+    public static boolean isPlayWithOthers() {
+        return Prefers.getBoolean("play_with_others", false);
+    }
+
+    public static void putPlayWithOthers(boolean play) {
+        Prefers.put("play_with_others", play);
     }
 
     public static boolean isDanmu() {
@@ -320,6 +336,14 @@ public class Setting {
 
     public static void putBackupMode(int auto) {
         Prefers.put("backup_mode", auto);
+    }
+
+    public static boolean isZhuyin() {
+        return Prefers.getBoolean("zhuyin");
+    }
+
+    public static void putZhuyin(boolean zhuyin) {
+        Prefers.put("zhuyin", zhuyin);
     }
 
     public static float getThumbnail() {
@@ -500,6 +524,14 @@ public class Setting {
 
     public static int getParseWebView() {
         return Prefers.getInt("parse_webview", 0);
+    }
+
+    public static boolean isSiteSearch() {
+        return Prefers.getBoolean("site_search", false);
+    }
+
+    public static void putSiteSearch(boolean search) {
+        Prefers.put("site_search", search);
     }
 
     public static boolean isRemoveAd() {
